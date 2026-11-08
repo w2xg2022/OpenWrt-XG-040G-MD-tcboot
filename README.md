@@ -1,39 +1,34 @@
-# OpenWrt for XG-040G-MD
+# OpenWrt for XG-040G-MD（tcboot / Web U-Boot 定制版）
 
-OpenWrt firmware for NOKIA BELL XG-040G-MD
+NOKIA BELL XG-040G-MD 的 OpenWrt 固件，适用于已刷 **Web U-Boot（tcboot）** 的机器。
 
-源仓库采用：[https://github.com/xiangtailiang/openwrt](https://github.com/xiangtailiang/openwrt)
+基于 [xiangtailiang/OpenWrt-for-XG-040G-MD](https://github.com/xiangtailiang/OpenWrt-for-XG-040G-MD)，
+源码 [xiangtailiang/openwrt](https://github.com/xiangtailiang/openwrt) main 分支（内核 6.18），机型 `nokia_xg-040g-md-tcboot`。
 
-- 已完美适配 SkyHigh 闪存，运行稳定（采用官方 Robust Read Workaround 补丁）
-- Image 基于 OpenWrt 25.12 稳定版或 main (snapshot) 分支构建
-- 包含 luci，尽可能保持小体积，不包含其他不必要的包
+## 特点
 
-## 包含的插件 (LuCI Apps)
+- 默认地址 `192.168.8.1`，主机名 `XG-040G-MD`，简体中文，Bootstrap 主题
+- turboacc（流量分载 + 全锥形 NAT + BBR）、定时重启
+- 网口4（千兆）= WAN，网口1（2.5G）/2/3 = LAN；LuCI「网络 → 网口设置」图形化分配 LAN/WAN
+- LED：WAN 连接/上线/掉线指示，可在「系统 → LED 配置」调整
+- USB 硬盘 / U 盘：NTFS、exFAT、FAT32、ext4、HFS+、Btrfs，插上自动挂载
+- USB 无线：RTL8822BU、RTL8821CU、MT7612U、AIC8800D80
+- USB 有线：RTL8156B 2.5G
+- 不带科学上网插件
 
-固件主打核心路由及科学上网功能，精简无杂项：
-- **基础界面**: LuCI (支持 HTTPS), 中文语言包
-- **默认主题**: Argon 主题 (含设置页), 保留原生 Bootstrap
-- **网络与安全**: 防火墙 (基于 nftables), dnsmasq (DHCP/DNS/IPv6)
-- **科学上网**: HomeProxy, PassWall (含 xray-core)
+详细改动见 [docs/tcboot-custom.md](docs/tcboot-custom.md)。
 
-## 刷机教程
+## 刷机
 
-1. **刷入 U-Boot**: [点击参考通用的 XG-040G-MD 刷机教程](https://nwrt.kuroneko.host/flashdocs/XG-040G-MD.html)
-2. **刷入系统**: 在 U-Boot Web 恢复界面中，上传并刷入本仓库 Release 页面发布的 **factory** 固件。
+1. 先刷 Web U-Boot：参考 [XG-040G-MD 刷机教程](https://nwrt.kuroneko.host/flashdocs/XG-040G-MD.html)
+2. 进入 U-Boot Web 恢复页面，上传 Release 里的 `*-tcboot-squashfs-factory.bin`
+3. 以后升级用 `*-tcboot-squashfs-sysupgrade.bin`
 
 > [!WARNING]
-> **进入 U-Boot 的正确方法：**
-> 给路由器通电等 **3秒钟** 后，再按住 reset 键不放。
-> **千万不要**按住 reset 键再通电，否则机器会进入底层的“救砖模式”（MaskROM/Emergency 模式），将无法进入 U-Boot Web 界面。
+> 进入 U-Boot：通电约 **3 秒** 后再按住 reset 不放。
+> **不要**先按住 reset 再通电，否则会进入底层救砖模式，进不了 U-Boot Web 界面。
 
-## 运行截图
+## 编译
 
-### 系统概览
-![System Overview](shot/shot1.png)
-
-### 接口与网络
-![Interfaces](shot/shot2.png)
-
-## Docs
-
-- `docs/npu-firmware-load.md`: NPU 固件加载报错（`-2`）分析与修复记录
+- 云编译：Actions → `Build_XG_040G_MD_tcboot` → Run workflow（推送相关文件到 main 也会自动触发）
+- 本地：`bash scripts/build-tcboot-local.sh prepare && bash scripts/build-tcboot-local.sh build`

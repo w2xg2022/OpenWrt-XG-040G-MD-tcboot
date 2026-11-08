@@ -1,0 +1,5 @@
+# AICSemi AIC8800 系列 USB 无线网卡（出厂先以“驱动光盘”模式出现）
+# 弹出虚拟光盘后切换为无线网卡模式（如 a69c:8d80 = AIC8800D80）
+TargetVendor=0xa69c
+TargetProductList="8800,8801,8d80,8d81,8d40,8d41"
+StandardEject=1

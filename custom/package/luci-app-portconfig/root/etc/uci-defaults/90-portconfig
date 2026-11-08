@@ -1,0 +1,4 @@
+#!/bin/sh
+# 首次开机：按默认分配（网口4=WAN，其余=LAN）写入 network，并给 WAN 固定 MAC
+[ -x /usr/sbin/portconfig ] && /usr/sbin/portconfig apply >/dev/null 2>&1
+exit 0

@@ -1,0 +1,34 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: zh_Hans\n"
+
+msgid "Port Assignment"
+msgstr "网口设置"
+
+msgid "Port 1"
+msgstr "网口1"
+
+msgid "Port 2"
+msgstr "网口2"
+
+msgid "Port 3"
+msgstr "网口3"
+
+msgid "Port 4"
+msgstr "网口4"
+
+msgid "no link"
+msgstr "未连接"
+
+msgid "Connected"
+msgstr "已连接"
+
+msgid "At least one port must stay LAN"
+msgstr "至少要保留一个 LAN 口"
+
+msgid "Choose whether each physical port belongs to LAN or WAN. If more than one port is set to WAN they are bridged together (br-wan). At least one port must stay LAN. If the port you are connected to is moved to WAN, reconnect your computer to a LAN port."
+msgstr "设置每个物理网口属于 LAN 还是 WAN。多个网口设为 WAN 时会自动桥接在一起（br-wan）。至少要保留一个 LAN 口。如果把电脑当前连接的网口改成了 WAN，请把网线改插到 LAN 口。"
+
+msgid "Grant UCI access for luci-app-portconfig"
+msgstr "授予 luci-app-portconfig 访问 UCI 配置的权限"

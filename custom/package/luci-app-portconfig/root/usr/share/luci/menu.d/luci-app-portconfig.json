@@ -1,0 +1,14 @@
+{
+	"admin/network/portconfig": {
+		"title": "Port Assignment",
+		"order": 15,
+		"action": {
+			"type": "view",
+			"path": "portconfig"
+		},
+		"depends": {
+			"acl": [ "luci-app-portconfig" ],
+			"uci": { "portconfig": true }
+		}
+	}
+}

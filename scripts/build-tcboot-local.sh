@@ -1,0 +1,89 @@
+#!/bin/bash
+# XG-040G-MD (tcboot) 在 VM 本地编译
+#
+# 用法：
+#   bash scripts/build-tcboot-local.sh prepare   # 重置源码 → feeds → 第三方包 → 自定义改动 → defconfig
+#   bash scripts/build-tcboot-local.sh build     # 下载源码包 + 编译
+#   bash scripts/build-tcboot-local.sh all       # 两步一起
+#
+# 环境变量：
+#   OPENWRT_DIR  openwrt 源码目录（默认 ~/work-xg040/openwrt，来源 xiangtailiang/openwrt main）
+#   OPENWRT_REF  固定的源码版本（默认见下）
+set -e
+
+REPO_DIR="$(readlink -f "$(dirname "$0")/..")"
+OPENWRT_DIR="${OPENWRT_DIR:-$HOME/work-xg040/openwrt}"
+OPENWRT_REF="${OPENWRT_REF:-67d579ed20011b2c601e75bdd9fa86f7b619fc69}"
+CONFIG_FILE="$REPO_DIR/config/xg-040g-md-tcboot.config"
+LOG_DIR="${LOG_DIR:-$REPO_DIR/../logs}"
+mkdir -p "$LOG_DIR"
+
+prepare() {
+	cd "$OPENWRT_DIR"
+	echo "==== 重置源码到 $OPENWRT_REF ===="
+	git reset -q --hard "$OPENWRT_REF"
+	git clean -fdq        # 只清未跟踪文件；dl/build_dir/staging_dir 等被忽略的目录保留
+	rm -rf files package/turboacc
+
+	echo "==== feeds ===="
+	cp -f "$REPO_DIR/feeds.conf.default" feeds.conf.default
+	./scripts/feeds update -a
+	./scripts/feeds install -a -f
+
+	# 不带 homeproxy / passwall / argon，所以不跑上游的 update-packages.sh
+	sed -i 's/--set=llvm.download-ci-llvm=true/--set=llvm.download-ci-llvm=false/' \
+		feeds/packages/lang/rust/Makefile 2>/dev/null || true
+
+	echo "==== 自定义改动 ===="
+	bash "$REPO_DIR/scripts/diy-tcboot.sh" "$REPO_DIR"
+
+	echo "==== .config ===="
+	cp -f "$CONFIG_FILE" .config
+	make defconfig
+	cp -f .config "$LOG_DIR/defconfig-final.config"
+
+	echo "==== 检查关键选项 ===="
+	local miss=0 k
+	for k in \
+		CONFIG_TARGET_airoha_an7581_DEVICE_nokia_xg-040g-md-tcboot \
+		CONFIG_LINUX_6_18 \
+		CONFIG_PACKAGE_luci-app-turboacc \
+		CONFIG_PACKAGE_luci-app-autoreboot \
+		CONFIG_PACKAGE_luci-app-portconfig \
+		CONFIG_PACKAGE_luci-theme-bootstrap \
+		CONFIG_PACKAGE_luci-i18n-base-zh-cn \
+		CONFIG_PACKAGE_kmod-fs-ntfs3 \
+		CONFIG_PACKAGE_kmod-fs-exfat \
+		CONFIG_PACKAGE_kmod-rtw88-8822bu \
+		CONFIG_PACKAGE_kmod-rtw88-8821cu \
+		CONFIG_PACKAGE_kmod-mt76x2u \
+		CONFIG_PACKAGE_kmod-aic8800-usb \
+		CONFIG_PACKAGE_usb-modeswitch \
+		CONFIG_PACKAGE_kmod-usb-net-rtl8152; do
+		if grep -q "^$k=y" .config; then echo "  OK  $k"; else echo "  缺  $k"; miss=1; fi
+	done
+	for k in luci-theme-argon luci-app-homeproxy luci-app-passwall; do
+		if grep -q "^CONFIG_PACKAGE_$k=y" .config; then echo "  不该有  $k"; miss=1; fi
+	done
+	[ $miss -eq 0 ] || { echo "有选项没生效，请检查"; exit 1; }
+}
+
+build() {
+	cd "$OPENWRT_DIR"
+	echo "==== 下载 ===="
+	make download -j8
+	find dl -size -1024c -delete
+	echo "==== 编译 ===="
+	if ! make -j"$(nproc)"; then
+		echo "多线程失败，改单线程 V=s 定位错误"
+		make -j1 V=s
+	fi
+	ls -l bin/targets/airoha/an7581/*tcboot*
+}
+
+case "$1" in
+prepare) prepare ;;
+build) build ;;
+all) prepare; build ;;
+*) sed -n '2,12p' "$0"; exit 1 ;;
+esac

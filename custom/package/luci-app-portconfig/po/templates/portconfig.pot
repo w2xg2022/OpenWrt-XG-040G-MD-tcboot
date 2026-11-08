@@ -1,0 +1,33 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+msgid "Port Assignment"
+msgstr ""
+
+msgid "Port 1"
+msgstr ""
+
+msgid "Port 2"
+msgstr ""
+
+msgid "Port 3"
+msgstr ""
+
+msgid "Port 4"
+msgstr ""
+
+msgid "no link"
+msgstr ""
+
+msgid "Connected"
+msgstr ""
+
+msgid "At least one port must stay LAN"
+msgstr ""
+
+msgid "Choose whether each physical port belongs to LAN or WAN. If more than one port is set to WAN they are bridged together (br-wan). At least one port must stay LAN. If the port you are connected to is moved to WAN, reconnect your computer to a LAN port."
+msgstr ""
+
+msgid "Grant UCI access for luci-app-portconfig"
+msgstr ""
+
