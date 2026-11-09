@@ -89,7 +89,7 @@ jobs:
           rm -rf packages
           ls -l
           echo "dir=$PWD" >> "$GITHUB_OUTPUT"
-          echo "tag=tcboot-$(date +%Y.%m.%d-%H%M%S)" >> "$GITHUB_OUTPUT"
+          echo "tag=exp618-$(date +%Y.%m.%d-%H%M%S)" >> "$GITHUB_OUTPUT"
 
       - name: 上传固件（Artifacts）
         uses: actions/upload-artifact@v4
@@ -100,7 +100,7 @@ jobs:
       - name: 生成 Release 说明
         run: |
           cat > release.txt <<EOF
-          XG-040G-MD（tcboot / Web U-Boot）定制固件
+          【实验版】XG-040G-MD tcboot 内核 6.18（DTS 三处改成 bell 写法，仅供测试）
           ----------------------
           构建时间：$(date +"%Y-%m-%d %H:%M")
           源码：$REPO_URL @ $(git -C "$OPENWRT_DIR" rev-parse --short HEAD)
@@ -115,6 +115,7 @@ jobs:
         with:
           tag: ${{ steps.fw.outputs.tag }}
           bodyFile: release.txt
+          prerelease: true
           artifacts: ${{ steps.fw.outputs.dir }}/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -68,5 +68,24 @@ if [ ! -d package/turboacc ]; then
 fi
 ls package/turboacc
 
+step "8. 【实验】把主线 6.18 DTS 里可疑的三处改成上游 bell(6.12，实机可用)的写法"
+DTS=target/linux/airoha/dts
+COMMON=$DTS/an758x-nokia_xg-040g-common.dtsi
+MD=$DTS/an7581-nokia_xg-040g-md-common.dtsi
+# (1) NAND：去掉 "ECC none" 覆盖（bell 没有这段；本机 U-Boot 2025.01 写入时带 ECC）
+perl -0pi -e 's/\t\/\*\n\t \*  ECC must be aligned.*?nand-ecc-strength = <0>;\n//s' "$COMMON"
+! grep -q 'nand-ecc-mode' "$COMMON" || { echo "去 ECC none 失败"; exit 1; }
+# (2) 2.5G 晶片 EN8811H 复位后等待 20ms -> 2s（同 bell）
+sed -i 's/reset-deassert-us = <20000>;/reset-deassert-us = <2000000>;/' "$MD"
+grep -q 'reset-deassert-us = <2000000>' "$MD" || { echo "改 reset 时间失败"; exit 1; }
+# (3) 网口灯接脚、gpio 范围同 bell：gpio 44/45/46 -> 34/35/42，范围 50 -> 47；
+#     34/35 原是主线的 USB 灯，与 bell 的网口灯冲突，实验版去掉两个 USB 灯
+sed -i 's/pins = "gpio44";/pins = "gpio34";/; s/pins = "gpio45";/pins = "gpio35";/; s/pins = "gpio46";/pins = "gpio42";/; s/0 13 50>;/0 13 47>;/' "$MD"
+perl -0pi -e 's/\t\tled-4 \{.*?\n\t\t\};\n\n\t\tled-5 \{.*?\n\t\t\};\n//s' "$MD"
+! grep -q 'led-4\|led-5' "$MD" || { echo "去 USB 灯失败"; exit 1; }
+grep -q 'gpio34' "$MD" && grep -q 'gpio42' "$MD" && grep -q '0 13 47>' "$MD" || { echo "改网口灯接脚失败"; exit 1; }
+git -C . diff --stat -- "$COMMON" "$MD" 2>/dev/null || true
+sed -n '/leds {/,/^\t};/p' "$MD"
+
 echo
 echo "==== diy-tcboot.sh 完成 ===="
