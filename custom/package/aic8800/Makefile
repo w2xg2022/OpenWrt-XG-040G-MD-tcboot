@@ -5,7 +5,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=aic8800
-PKG_RELEASE:=5
+PKG_RELEASE:=4
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/radxa-pkg/aic8800.git
@@ -61,9 +61,11 @@ define KernelPackage/aic8800-sdio
 endef
 
 define KernelPackage/aic8800-sdio/config
-  config AIC8800_SDIO_BT_SUPPORT
-  bool "Enable Bluetooth support"
-  default y
+  if PACKAGE_kmod-aic8800-sdio
+	config AIC8800_SDIO_BT_SUPPORT
+		bool "Enable Bluetooth support"
+		default y
+  endif
 endef
 
 define KernelPackage/aic8800-usb
@@ -89,7 +91,7 @@ NOSTDINC_FLAGS:= \
 
 define Build/Prepare
 	$(Build/Prepare/Default)
-	# 原厂代码有未使用变量/标签等小警告，内核 6.18 的 -Werror 会让编译中断，这里对本驱动关闭
+	# 原厂代码有未使用变量/标签等小警告，-Werror 会让编译中断，这里对本驱动关闭
 	for f in $$$$(find $(PKG_BUILD_DIR)/src -name Makefile); do \
 		echo 'ccflags-y += -Wno-error' >> "$$$$f"; \
 	done

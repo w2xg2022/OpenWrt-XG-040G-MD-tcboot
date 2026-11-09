@@ -75,9 +75,23 @@ build() {
 	make download -j8
 	find dl -size -1024c -delete
 	echo "==== 编译 ===="
-	if ! make -j"$(nproc)"; then
-		echo "多线程失败，改单线程 V=s 定位错误"
-		make -j1 V=s
+	local log="$LOG_DIR/build.log" rc=0
+	make -j"$(nproc)" > "$log" 2>&1 || rc=$?
+	tail -n 25 "$log"
+	if [ $rc -ne 0 ]; then
+		grep -n -E 'error:|Error [0-9]|ERROR:' "$log" | grep -v Werror | head -60 > "$LOG_DIR/build-errors.txt" || true
+		if grep -q 'package/aic8800 failed to build' "$log"; then
+			echo "!!!! AIC8800 驱动编译失败：去掉它继续，其余功能照常出固件（错误见 build-errors.txt）"
+			sed -i '/^CONFIG_PACKAGE_kmod-aic8800-usb=y/d;/^CONFIG_PACKAGE_aic8800-usb-firmware=y/d' .config
+			echo '# CONFIG_PACKAGE_kmod-aic8800-usb is not set' >> .config
+			echo '# CONFIG_PACKAGE_aic8800-usb-firmware is not set' >> .config
+			make defconfig
+			touch "$LOG_DIR/NO_AIC8800"
+			make -j"$(nproc)" || make -j1 V=s
+		else
+			echo "多线程失败，改单线程 V=s 定位错误"
+			make -j1 V=s
+		fi
 	fi
 	ls -l bin/targets/airoha/an7581/*bell_xg-040g-md*
 }

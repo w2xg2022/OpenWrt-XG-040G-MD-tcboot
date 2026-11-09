@@ -82,6 +82,16 @@ jobs:
       - name: 编译
         run: bash scripts/build-tcboot-local.sh build
 
+      - name: 上传编译日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            /mnt/openwrt/logs/build-errors.txt
+            /mnt/openwrt/logs/NO_AIC8800
+          if-no-files-found: ignore
+
       - name: 整理固件
         id: fw
         run: |
@@ -105,6 +115,7 @@ jobs:
           构建时间：$(date +"%Y-%m-%d %H:%M")
           源码：$REPO_URL @ $(git -C "$OPENWRT_DIR" rev-parse --short HEAD)
           内核：6.12（openwrt-25.12）
+          $( [ -f /mnt/openwrt/logs/NO_AIC8800 ] && echo '注意：AIC8800 驱动本次编译失败，固件不含 AIC8800 无线网卡驱动' )
           默认地址：192.168.8.1（root 无密码）
           刷机：在 Web U-Boot 恢复页面上传 *-bell_xg-040g-md-squashfs-factory.bin
           已刷本固件后升级：系统 → 备份/升级，用 *-bell_xg-040g-md-squashfs-sysupgrade.bin
