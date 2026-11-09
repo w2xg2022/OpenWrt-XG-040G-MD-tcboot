@@ -87,6 +87,14 @@ NOSTDINC_FLAGS:= \
 	-include backport/backport.h \
 	-DBUILD_OPENWRT
 
+define Build/Prepare
+	$(Build/Prepare/Default)
+	# 原厂代码有未使用变量/标签等小警告，内核 6.18 的 -Werror 会让编译中断，这里对本驱动关闭
+	for f in $$$$(find $(PKG_BUILD_DIR)/src -name Makefile); do \
+		echo 'ccflags-y += -Wno-error' >> "$$$$f"; \
+	done
+endef
+
 define Build/Compile
 
 ifneq ($(CONFIG_PACKAGE_kmod-aic8800-btusb),)
