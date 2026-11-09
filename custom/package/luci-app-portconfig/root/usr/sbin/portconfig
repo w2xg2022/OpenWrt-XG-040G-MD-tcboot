@@ -4,22 +4,22 @@
 # 用法：
 #   portconfig show                 显示当前分配
 #   portconfig wan <端口...>        把指定端口设为 WAN，其余设为 LAN，并立即生效
-#                                   例：portconfig wan lan4   /  portconfig wan lan1
+#                                   例：portconfig wan lan4   /  portconfig wan eth1
 #   portconfig apply [--reload]     按 /etc/config/portconfig 重写 network 配置
 #
-# 端口名：lan1=网口1(2.5G)  lan2=网口2  lan3=网口3  lan4=网口4
+# 端口名：eth1=网口1(2.5G)  lan2=网口2  lan3=网口3  lan4=网口4
 
 . /lib/functions.sh
 . /lib/functions/system.sh
 
-PORTS="lan1 lan2 lan3 lan4"
+PORTS="eth1 lan2 lan3 lan4"
 TAG="portconfig"
 
 log() { logger -t "$TAG" "$*"; echo "$*"; }
 
 port_label() {
 	case "$1" in
-	lan1) echo "网口1 (2.5G)" ;;
+	eth1) echo "网口1 (2.5G)" ;;
 	lan2) echo "网口2" ;;
 	lan3) echo "网口3" ;;
 	lan4) echo "网口4" ;;
@@ -40,20 +40,6 @@ find_device_section() {
 	echo "$found"
 }
 
-base_mac() {
-	local idx mac sec
-	idx="$(find_mtd_index env)"
-	[ -n "$idx" ] && mac="$(strings "/dev/mtd$idx" 2>/dev/null | sed -n 's/^ethaddr=//p' | head -n1)"
-	mac="$(macaddr_canonicalize "$mac" 2>/dev/null)"
-	if [ -z "$mac" ]; then
-		# 退路：br-lan 的 MAC 是 基础MAC+1
-		sec="$(find_device_section br-lan)"
-		[ -n "$sec" ] && mac="$(uci -q get network.$sec.macaddr)"
-		[ -n "$mac" ] && mac="$(macaddr_add "$mac" -1)"
-	fi
-	echo "$mac"
-}
-
 do_show() {
 	local p r
 	for p in $PORTS; do
@@ -64,7 +50,7 @@ do_show() {
 }
 
 do_apply() {
-	local p r lan_ports="" wan_ports="" nwan=0 wandev="" brsec wanmac base
+	local p r lan_ports="" wan_ports="" nwan=0 wandev="" brsec
 
 	for p in $PORTS; do
 		r="$(uci -q get portconfig.main.$p)"
@@ -92,23 +78,13 @@ do_apply() {
 		uci add_list network.$brsec.ports="$p"
 	done
 
-	# 清掉本工具之前建立的段
+	# 清掉本工具之前建立的段（WAN 的固定 MAC 由 board.d/02_network 设在 wan 接口上，随接口走，这里不用管）
 	uci -q delete network.portconfig_wanbr
-	uci -q delete network.portconfig_wanmac
-
-	base="$(base_mac)"
-	[ -n "$base" ] && wanmac="$(macaddr_add "$base" 2)"
 
 	if [ "$nwan" -eq 0 ]; then
 		wandev=""
 	elif [ "$nwan" -eq 1 ]; then
 		wandev="$(echo $wan_ports)"
-		# lan1(2.5G) 自带固定 MAC；交换机口没有，固定一个，避免每次开机 MAC 变化
-		if [ "$wandev" != "lan1" ] && [ -n "$wanmac" ]; then
-			uci set network.portconfig_wanmac=device
-			uci set network.portconfig_wanmac.name="$wandev"
-			uci set network.portconfig_wanmac.macaddr="$wanmac"
-		fi
 	else
 		wandev="br-wan"
 		uci set network.portconfig_wanbr=device
@@ -117,7 +93,6 @@ do_apply() {
 		for p in $wan_ports; do
 			uci add_list network.portconfig_wanbr.ports="$p"
 		done
-		[ -n "$wanmac" ] && uci set network.portconfig_wanbr.macaddr="$wanmac"
 	fi
 
 	for p in wan wan6; do

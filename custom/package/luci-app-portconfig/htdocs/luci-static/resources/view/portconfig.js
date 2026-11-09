@@ -6,7 +6,7 @@
 'require ui';
 
 const PORTS = [
-	{ dev: 'lan1', name: _('Port 1'), speed: '2.5G' },
+	{ dev: 'eth1', name: _('Port 1'), speed: '2.5G' },
 	{ dev: 'lan2', name: _('Port 2'), speed: '1G' },
 	{ dev: 'lan3', name: _('Port 3'), speed: '1G' },
 	{ dev: 'lan4', name: _('Port 4'), speed: '1G' }

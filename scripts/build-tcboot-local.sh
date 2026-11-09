@@ -12,8 +12,9 @@
 set -e
 
 REPO_DIR="$(readlink -f "$(dirname "$0")/..")"
-OPENWRT_DIR="${OPENWRT_DIR:-$HOME/work-xg040/openwrt}"
-OPENWRT_REF="${OPENWRT_REF:-67d579ed20011b2c601e75bdd9fa86f7b619fc69}"
+# 源码：xiangtailiang/openwrt 的 openwrt-25.12 分支，固定在上游能用固件(2026-10-08 18:20)编译时的版本
+OPENWRT_DIR="${OPENWRT_DIR:-$HOME/work-xg040/openwrt-2512}"
+OPENWRT_REF="${OPENWRT_REF:-a0f613fae7a309dab6516023f556d1323c2b248b}"
 CONFIG_FILE="$REPO_DIR/config/xg-040g-md-tcboot.config"
 LOG_DIR="${LOG_DIR:-$REPO_DIR/../logs}"
 mkdir -p "$LOG_DIR"
@@ -45,8 +46,8 @@ prepare() {
 	echo "==== 检查关键选项 ===="
 	local miss=0 k
 	for k in \
-		CONFIG_TARGET_airoha_an7581_DEVICE_nokia_xg-040g-md-tcboot \
-		CONFIG_LINUX_6_18 \
+		CONFIG_TARGET_airoha_an7581_DEVICE_bell_xg-040g-md \
+		CONFIG_LINUX_6_12 \
 		CONFIG_PACKAGE_luci-app-turboacc \
 		CONFIG_PACKAGE_luci-app-autoreboot \
 		CONFIG_PACKAGE_luci-app-portconfig \
@@ -78,7 +79,7 @@ build() {
 		echo "多线程失败，改单线程 V=s 定位错误"
 		make -j1 V=s
 	fi
-	ls -l bin/targets/airoha/an7581/*tcboot*
+	ls -l bin/targets/airoha/an7581/*bell_xg-040g-md*
 }
 
 case "$1" in

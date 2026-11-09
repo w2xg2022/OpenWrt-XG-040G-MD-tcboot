@@ -1,7 +1,7 @@
 #!/bin/sh
 # XG-040G-MD 面板灯：
-#   绿色 WAN-online 灯 = WAN 已拿到地址（能上网）
-#   红色 WAN 灯       = WAN 掉线
+#   绿色 internet 灯 = WAN 已拿到地址（能上网）
+#   红色 los 灯      = WAN 掉线
 # 只在该灯的触发器是 none 时才控制；在「系统 → LED 配置」里给它另设触发器后，这里自动不再干预。
 
 [ "$INTERFACE" = "wan" ] || exit 0
@@ -15,11 +15,11 @@ led_set() {
 
 case "$ACTION" in
 ifup)
-	led_set "green:wan-online" 1
-	led_set "red:wan" 0
+	led_set "green:internet" 1
+	led_set "red:los" 0
 	;;
 ifdown)
-	led_set "green:wan-online" 0
-	led_set "red:wan" 1
+	led_set "green:internet" 0
+	led_set "red:los" 1
 	;;
 esac

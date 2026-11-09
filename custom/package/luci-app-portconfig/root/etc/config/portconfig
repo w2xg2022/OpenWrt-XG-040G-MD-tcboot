@@ -1,6 +1,6 @@
 
 config ports 'main'
-	option lan1 'lan'
+	option eth1 'lan'
 	option lan2 'lan'
 	option lan3 'lan'
 	option lan4 'wan'

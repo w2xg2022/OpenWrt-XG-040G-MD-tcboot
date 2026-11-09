@@ -1,5 +1,5 @@
 #!/bin/bash
-# XG-040G-MD (tcboot) 自定义改动
+# XG-040G-MD (bell 机型 / openwrt-25.12) 自定义改动
 # 用法：在 openwrt 源码根目录、feeds update/install 之后执行
 #   bash <配置仓库>/scripts/diy-tcboot.sh <配置仓库目录>
 set -e
@@ -15,22 +15,28 @@ sed -i 's/192\.168\.1\.1/192.168.8.1/g' package/base-files/files/bin/config_gene
 sed -i "s/hostname='OpenWrt'/hostname='XG-040G-MD'/" package/base-files/files/bin/config_generate
 grep -n "192.168.8.1\|hostname='XG-040G-MD'" package/base-files/files/bin/config_generate
 
-step "2. 默认网口：网口4(lan4)=WAN，网口1(2.5G)~3=LAN"
+step "2. 默认网口：网口4(lan4)=WAN，网口1(2.5G=eth1)、网口2(lan2)、网口3(lan3)=LAN"
 NETF=target/linux/airoha/an7581/base-files/etc/board.d/02_network
-if ! grep -q 'xg040-custom' "$NETF"; then
-	# tcboot 单独一条：lan1~3 为 LAN，lan4 为 WAN
-	perl -0pi -e 's/\tnokia,xg-040g-md\|\\\n\tnokia,xg-040g-md-tcboot\|\\\n\tnokia,xg-040g-md-ubi\)\n/\tnokia,xg-040g-md-tcboot)\n\t\t# xg040-custom: 网口4 做 WAN\n\t\tucidef_set_interfaces_lan_wan "lan1 lan2 lan3" "lan4"\n\t\t;;\n\tnokia,xg-040g-md|\\\n\tnokia,xg-040g-md-ubi)\n/' "$NETF"
-	# 注：WAN 口的固定 MAC（基础MAC+2）由 luci-app-portconfig 首次开机写入，这里不重复设
-fi
-grep -q 'ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" "lan4"' "$NETF" || { echo "02_network 修改失败"; exit 1; }
+# 上游原本：lan2~4=LAN，2.5G(eth1)=WAN；改成 eth1+lan2+lan3=LAN，lan4=WAN
+sed -i 's/ucidef_set_interfaces_lan_wan "lan2 lan3 lan4" "eth1"/ucidef_set_interfaces_lan_wan "eth1 lan2 lan3" "lan4"/' "$NETF"
+grep -q 'ucidef_set_interfaces_lan_wan "eth1 lan2 lan3" "lan4"' "$NETF" || { echo "02_network 修改失败"; exit 1; }
 sed -n '/an7581_setup_interfaces()/,/^}/p' "$NETF"
 
-step "2b. 默认 LED：WAN 绿灯跟随 WAN 口（lan4）连接/收发"
+step "2b. 默认 LED：green:pon 跟随 WAN 口(lan4)连接/收发；internet/los 由 hotplug 脚本控制"
 LEDF=target/linux/airoha/an7581/base-files/etc/board.d/01_leds
 if ! grep -q 'xg040-custom' "$LEDF"; then
-	perl -0pi -e 's/\nboard_config_flush\n/\n# xg040-custom: WAN 绿灯（换 WAN 口时由 portconfig 同步 dev）\ncase "\$board" in\nnokia,xg-040g-md-tcboot)\n\tucidef_set_led_netdev "wan" "WAN" "green:wan" "lan4" "link tx rx"\n\t;;\nesac\n\nboard_config_flush\n/' "$LEDF"
+	LEDBLOCK=$(cat <<'EOT'
+# xg040-custom: WAN 灯（换 WAN 口时由 portconfig 同步 dev）
+case "$board" in
+bell,xg-040g-md)
+	ucidef_set_led_netdev "wan" "WAN" "green:pon" "lan4" "link tx rx"
+	;;
+esac
+EOT
+)
+	perl -0pi -e 'BEGIN { $b = shift @ARGV } s/\nboard_config_flush\n/\n$b\n\nboard_config_flush\n/' "$LEDBLOCK" "$LEDF"
 fi
-grep -q 'ucidef_set_led_netdev "wan" "WAN" "green:wan" "lan4"' "$LEDF" || { echo "01_leds 修改失败"; exit 1; }
+grep -q 'ucidef_set_led_netdev "wan" "WAN" "green:pon" "lan4"' "$LEDF" || { echo "01_leds 修改失败"; exit 1; }
 
 step "3. 首次开机默认设置（中文、Bootstrap、时区、USB 自动挂载）"
 mkdir -p files
