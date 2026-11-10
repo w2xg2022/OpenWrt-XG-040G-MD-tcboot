@@ -51,10 +51,20 @@ EOF
 	echo "==== 检查 ===="
 	local k
 	for k in CONFIG_TARGET_airoha_an7581_DEVICE_bell_xg-040g-md CONFIG_LINUX_6_12 \
-		CONFIG_PACKAGE_luci-theme-bootstrap CONFIG_PACKAGE_luci-app-homeproxy CONFIG_PACKAGE_luci-app-passwall; do
+		CONFIG_PACKAGE_luci-theme-bootstrap; do
 		grep -q "^$k=y" .config && echo "OK   $k" || { echo "缺少 $k"; exit 1; }
 	done
 	grep -q '^CONFIG_PACKAGE_luci-theme-argon=y' .config && { echo "不该出现 argon"; exit 1; } || echo "OK   无 argon"
+	# 本变体（NO_PROXY=1）故意不装代理软件；默认变体要求必须装
+	if [ "${NO_PROXY:-0}" = "1" ]; then
+		for k in CONFIG_PACKAGE_luci-app-homeproxy CONFIG_PACKAGE_luci-app-passwall; do
+			grep -q "^$k=y" .config && { echo "不该出现 $k"; exit 1; } || echo "OK   无 $k"
+		done
+	else
+		for k in CONFIG_PACKAGE_luci-app-homeproxy CONFIG_PACKAGE_luci-app-passwall; do
+			grep -q "^$k=y" .config && echo "OK   $k" || { echo "缺少 $k"; exit 1; }
+		done
+	fi
 	grep -q 'luci-theme-bootstrap' feeds/luci/collections/luci-light/Makefile && echo "OK   luci-light 默认 bootstrap"
 	return 0
 }
