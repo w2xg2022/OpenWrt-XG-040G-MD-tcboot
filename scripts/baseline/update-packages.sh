@@ -128,8 +128,66 @@ rm -rf ../feeds/packages/net/sing-box
 rm -rf ../package/feeds/packages/sing-box
 echo "Done removing sing-box from feeds"
 
-# HomeProxy (代理软件) - 使用第5个参数指定额外要删除的包名
-UPDATE_PACKAGE "homeproxy" "immortalwrt/homeproxy" "master"
+# （基准线：不装 HomeProxy，无代理软件）
+
+# （基准线：不装 Argon，也不改 LuCI 默认主题，默认就是 Bootstrap）
+
+# （基准线：不装 PassWall）
+
+PATCH_SING_BOX_GO127() {
+	local SING_BOX_MAKEFILE="./sing-box/Makefile"
+	local PATCHED_MAKEFILE
+	local GO127_TAG_LINE='GO_PKG_TAGS:=$(if $(strip $(GO_PKG_TAGS)),$(strip $(GO_PKG_TAGS))$(comma))http2legacy'
+
+	if [ ! -f "$SING_BOX_MAKEFILE" ]; then
+		echo "ERROR: Sing-box Makefile not found: $SING_BOX_MAKEFILE"
+		return 1
+	fi
+
+	if awk '!/^[[:space:]]*#/ && /http2legacy/ { found = 1 } END { exit !found }' "$SING_BOX_MAKEFILE"; then
+		echo "Sing-box already enables the Go http2legacy build tag."
+		return 0
+	fi
+
+	echo "Applying sing-box Go 1.27 compatibility hotfix..."
+	# Go 1.27 makes x/net/http2 wrap the standard-library implementation by
+	# default. Sing-box 1.13.x links to internals from the legacy implementation.
+	PATCHED_MAKEFILE=$(mktemp "${SING_BOX_MAKEFILE}.XXXXXX") || return 1
+	if ! awk -v tag_line="$GO127_TAG_LINE" '
+		$0 == "$(eval $(call GoBinPackage,sing-box))" && !patched {
+			print "# Go 1.27 compatibility: keep the legacy x/net/http2 implementation."
+			print tag_line
+			patched = 1
+		}
+		{ print }
+		END { if (!patched) exit 1 }
+	' "$SING_BOX_MAKEFILE" > "$PATCHED_MAKEFILE"; then
+		rm -f "$PATCHED_MAKEFILE"
+		echo "ERROR: Failed to locate the sing-box build-package declaration."
+		return 1
+	fi
+	mv -f "$PATCHED_MAKEFILE" "$SING_BOX_MAKEFILE"
+
+	if ! grep -Fq "$GO127_TAG_LINE" "$SING_BOX_MAKEFILE"; then
+		echo "ERROR: Failed to patch sing-box for Go 1.27."
+		return 1
+	fi
+
+	echo "Done applying sing-box Go 1.27 compatibility hotfix"
+}
+
+echo "Starting package updates..."
+
+# 首先删除 feeds 中的 sing-box 相关包，避免与第三方包冲突
+echo " "
+echo "=========================================="
+echo "Removing conflicting sing-box packages from feeds..."
+echo "=========================================="
+rm -rf ../feeds/packages/net/sing-box
+rm -rf ../package/feeds/packages/sing-box
+echo "Done removing sing-box from feeds"
+
+# （基准线：不装 HomeProxy，无代理软件）
 
 # （基准线：不装 Argon，也不改 LuCI 默认主题，默认就是 Bootstrap）
 
@@ -163,8 +221,6 @@ if [ -d "openwrt-passwall-packages" ]; then
 	done
 	rm -rf openwrt-passwall-packages
 fi
-
-PATCH_SING_BOX_GO127 || exit 1
 
 echo " "
 echo "=========================================="
