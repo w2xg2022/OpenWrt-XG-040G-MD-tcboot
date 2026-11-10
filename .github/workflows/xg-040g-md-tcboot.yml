@@ -4,17 +4,9 @@ permissions:
   contents: write
   actions: write
 
+# 完整编译（约 1~2 小时）只手动触发；日常改设定由 xg-040g-md-ib.yml 用 ImageBuilder 几分钟出包
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/xg-040g-md-tcboot.yml"
-      - "config/xg-040g-md-tcboot.config"
-      - "scripts/**"
-      - "custom/**"
-      - "feeds.conf.default"
 
 env:
   REPO_URL: https://github.com/xiangtailiang/openwrt.git
@@ -97,6 +89,9 @@ jobs:
         run: |
           cd "$OPENWRT_DIR/bin/targets/airoha/an7581"
           rm -rf packages
+          # ImageBuilder 单独放到固定的 imagebuilder Release，供 xg-040g-md-ib.yml 使用，不混进固件 Release
+          mkdir -p "$GITHUB_WORKSPACE/ib"
+          mv openwrt-imagebuilder-*.tar.zst "$GITHUB_WORKSPACE/ib/" 2>/dev/null || true
           ls -l
           echo "dir=$PWD" >> "$GITHUB_OUTPUT"
           echo "tag=tcboot-$(date +%Y.%m.%d-%H%M%S)" >> "$GITHUB_OUTPUT"
@@ -116,10 +111,18 @@ jobs:
           源码：$REPO_URL @ $(git -C "$OPENWRT_DIR" rev-parse --short HEAD)
           内核：6.12（openwrt-25.12）
           $( [ -f /mnt/openwrt/logs/NO_AIC8800 ] && echo '注意：AIC8800 驱动本次编译失败，固件不含 AIC8800 无线网卡驱动' )
-          默认地址：192.168.8.1（root 无密码）
+          默认地址：192.168.1.1（root 无密码）
           刷机：在 Web U-Boot 恢复页面上传 *-bell_xg-040g-md-squashfs-factory.bin
           已刷本固件后升级：系统 → 备份/升级，用 *-bell_xg-040g-md-squashfs-sysupgrade.bin
           EOF
+
+      - name: 更新 ImageBuilder（imagebuilder Release）
+        if: hashFiles('ib/*.tar.zst') != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view imagebuilder >/dev/null 2>&1 ||             gh release create imagebuilder --latest=false --title "ImageBuilder（供快速出包用）"               --notes "完整编译产出的 ImageBuilder，xg-040g-md-ib.yml 用它几分钟出固件。不是固件，不要刷。"
+          gh release upload imagebuilder ib/*.tar.zst --clobber
 
       - name: 发布 Release
         uses: ncipollo/release-action@v1

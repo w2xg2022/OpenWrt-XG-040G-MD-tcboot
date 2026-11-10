@@ -7,7 +7,7 @@ NOKIA BELL XG-040G-MD 的 OpenWrt 固件，适用于已刷 **Web U-Boot** 的机
 
 ## 特点
 
-- 默认地址 `192.168.8.1`，主机名 `XG-040G-MD`，简体中文，Bootstrap 主题
+- 默认地址 `192.168.1.1`，主机名 `XG-040G-MD`，简体中文，Bootstrap 主题
 - turboacc（流量分载 + 全锥形 NAT + BBR）、定时重启
 - 网口4（千兆）= WAN，网口1（2.5G）/2/3 = LAN（上游原本是 2.5G 当 WAN）；LuCI「网络 → 网口设置」图形化分配 LAN/WAN
 - LED：WAN 连接/上线/掉线指示，可在「系统 → LED 配置」调整

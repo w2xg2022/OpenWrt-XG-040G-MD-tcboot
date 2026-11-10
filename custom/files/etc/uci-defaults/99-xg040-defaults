@@ -9,9 +9,9 @@ uci -q batch <<-EOF
 	commit system
 EOF
 
-# LAN 默认地址 192.168.8.1（config_generate 已改，这里再保险一次）
+# LAN 默认地址 192.168.1.1（与上游相同，避开家里常见的 192.168.8.x）
 uci -q get network.lan >/dev/null && {
-	uci -q set network.lan.ipaddr='192.168.8.1'
+	uci -q set network.lan.ipaddr='192.168.1.1'
 	uci -q commit network
 }
 

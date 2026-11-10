@@ -9,7 +9,7 @@
 
 | 项目 | 内容 | 位置 |
 |---|---|---|
-| 默认地址 | LAN `192.168.8.1` | `diy-tcboot.sh` 改 `config_generate` + `99-xg040-defaults` |
+| 默认地址 | LAN `192.168.1.1` | `diy-tcboot.sh` 改 `config_generate` + `99-xg040-defaults` |
 | 主机名 | `XG-040G-MD` | 同上 |
 | 语言 / 主题 | 简体中文 / Bootstrap（去掉 Argon） | `99-xg040-defaults`、`diy-tcboot.sh` 第 6 步 |
 | turboacc | 流量分载 + 全锥形 NAT + BBR（`--no-sfe`，不打 SFE 内核补丁） | `diy-tcboot.sh` 第 7 步 |
@@ -19,7 +19,7 @@
 | AIC8800 模式切换 | 网卡先以“驱动光盘”出现（a69c:5721），自动弹出切成网卡 | `custom/usbmode/a69c-5721` |
 | USB 有线 | RTL8156B 2.5G（r8152） | `.config` |
 | 默认网口 | 网口4（千兆）= WAN；网口1（2.5G）、2、3 = LAN | `diy-tcboot.sh` 第 2 步改 `02_network`（`eth1 lan2 lan3` / `lan4`） |
-| 网口设置工具 | LuCI「网络 → 网口设置」：横排网口图标（显示连接/速率），每个口下拉选 LAN/WAN；命令行 `portconfig` | `custom/package/luci-app-portconfig` |
+| 网口设置工具（暂停，未编进固件） | LuCI「网络 → 网口设置」：横排网口图标（显示连接/速率），每个口下拉选 LAN/WAN；命令行 `portconfig` | `custom/package/luci-app-portconfig` |
 | LED | `green:pon` = WAN 口连接/收发（netdev）；`green:internet` = WAN 已上线；`red:los` = WAN 掉线；网口灯由硬件控制；可在「系统 → LED 配置」修改，另加 activity/oneshot/pattern/transient 触发器 | `diy-tcboot.sh` 第 2b 步、`custom/files/etc/hotplug.d/iface/90-xg040-wanled` |
 | 去掉的 | HomeProxy、PassWall、Argon 主题（不跑上游 `update-packages.sh`） | `build-tcboot-local.sh` |
 
@@ -51,3 +51,17 @@ bash scripts/build-tcboot-local.sh build     # 下载 + 编译
 ```
 
 源码固定在 `OPENWRT_REF`（见脚本），要跟进上游时改这个值。
+
+## 网口分配（当前）
+
+暂时保持上游分配：网口2~4（lan2~lan4）= LAN，2.5G 口（eth1）= WAN。网口工具 `luci-app-portconfig` 源码保留，暂不编进固件。
+
+## ImageBuilder 快速出包
+
+- 完整编译（`Build_XG_040G_MD_tcboot`）只手动触发，跑完会把 ImageBuilder 更新到 `imagebuilder` Release。
+- 日常推送改动以下文件时，`Build_XG_040G_MD_ImageBuilder` 自动用 ImageBuilder 几分钟出固件（Release tag 前缀 `ib-`）：
+  - `config/ib-packages.txt`：软件包清单（`-包名` 表示不装）
+  - `custom/files/`：首次开机默认设置
+  - `custom/ib-overlay/`：board.d 网口/LED 分配
+- 本地：`bash scripts/build-ib.sh <ImageBuilder 解压目录> [输出目录]`
+- 改驱动、内核、feeds，或新增 ImageBuilder 里没有的包，要先跑一次完整编译。

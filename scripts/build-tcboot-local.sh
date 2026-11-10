@@ -50,7 +50,6 @@ prepare() {
 		CONFIG_LINUX_6_12 \
 		CONFIG_PACKAGE_luci-app-turboacc \
 		CONFIG_PACKAGE_luci-app-autoreboot \
-		CONFIG_PACKAGE_luci-app-portconfig \
 		CONFIG_PACKAGE_luci-theme-bootstrap \
 		CONFIG_PACKAGE_luci-i18n-base-zh-cn \
 		CONFIG_PACKAGE_kmod-fs-ntfs3 \

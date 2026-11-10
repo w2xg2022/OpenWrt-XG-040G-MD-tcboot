@@ -1,0 +1,27 @@
+#
+# Copyright (C) 2015 OpenWrt.org
+#
+
+. /lib/functions/uci-defaults.sh
+
+board_config_update
+
+board=$(board_name)
+
+case "$board" in
+airoha,an7581-evb)
+	ucidef_set_led_usbport "usb1" "USB 1" "green:usb-1" "usb1-port1" "usb2-port1"
+	ucidef_set_led_usbport "usb2" "USB 2" "green:usb-2" "usb3-port1" "usb4-port1"
+	;;
+esac
+
+# xg040-custom: WAN 灯跟随 2.5G WAN 口
+case "$board" in
+bell,xg-040g-md)
+	ucidef_set_led_netdev "wan" "WAN" "green:pon" "eth1" "link tx rx"
+	;;
+esac
+
+board_config_flush
+
+exit 0
