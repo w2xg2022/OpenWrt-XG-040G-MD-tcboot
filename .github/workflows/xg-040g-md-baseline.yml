@@ -12,6 +12,7 @@ on:
 env:
   REPO_URL: https://github.com/xiangtailiang/openwrt.git
   TZ: Asia/Shanghai
+  BASELINE_NO_PROXY: "1"  # 本工作流对应 baseline-nopxy：不装 HomeProxy/PassWall
 
 jobs:
   build:
