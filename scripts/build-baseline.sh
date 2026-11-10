@@ -55,8 +55,8 @@ EOF
 		grep -q "^$k=y" .config && echo "OK   $k" || { echo "缺少 $k"; exit 1; }
 	done
 	grep -q '^CONFIG_PACKAGE_luci-theme-argon=y' .config && { echo "不该出现 argon"; exit 1; } || echo "OK   无 argon"
-	# 本变体（NO_PROXY=1）故意不装代理软件；默认变体要求必须装
-	if [ "${NO_PROXY:-0}" = "1" ]; then
+	# 本变体（BASELINE_NO_PROXY=1）故意不装代理软件；默认变体要求必须装
+	if [ "${BASELINE_NO_PROXY:-0}" = "1" ]; then
 		for k in CONFIG_PACKAGE_luci-app-homeproxy CONFIG_PACKAGE_luci-app-passwall; do
 			grep -q "^$k=y" .config && { echo "不该出现 $k"; exit 1; } || echo "OK   无 $k"
 		done
