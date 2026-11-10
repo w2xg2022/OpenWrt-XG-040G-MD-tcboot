@@ -48,7 +48,6 @@ prepare() {
 	for k in \
 		CONFIG_TARGET_airoha_an7581_DEVICE_bell_xg-040g-md \
 		CONFIG_LINUX_6_12 \
-		CONFIG_PACKAGE_luci-app-turboacc \
 		CONFIG_PACKAGE_luci-app-autoreboot \
 		CONFIG_PACKAGE_luci-theme-bootstrap \
 		CONFIG_PACKAGE_luci-i18n-base-zh-cn \

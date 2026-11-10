@@ -100,7 +100,6 @@ kmod-nf-reject6
 kmod-nfnetlink
 kmod-nft-core
 kmod-nft-fib
-kmod-nft-fullcone
 kmod-nft-nat
 kmod-nft-offload
 kmod-nls-base
@@ -193,14 +192,12 @@ luci
 luci-app-autoreboot
 luci-app-firewall
 luci-app-package-manager
-luci-app-turboacc
 luci-base
 luci-compat
 luci-i18n-autoreboot-zh-cn
 luci-i18n-base-zh-cn
 luci-i18n-firewall-zh-cn
 luci-i18n-package-manager-zh-cn
-luci-i18n-turboacc-zh-cn
 luci-lib-base
 luci-lib-ip
 luci-lib-jsonc

@@ -58,12 +58,7 @@ rm -rf package/luci-theme-argon package/luci-app-argon-config
 sed -i 's/luci-theme-argon/luci-theme-bootstrap/g' $(find feeds/luci/collections/ -type f -name Makefile)
 grep -n "luci-theme-bootstrap" feeds/luci/collections/luci/Makefile || true
 
-step "7. turboacc（不含 SFE，使用流量分载 + 全锥形 NAT）"
-if [ ! -d package/turboacc ]; then
-	curl -fsSL https://raw.githubusercontent.com/chenmozhijin/turboacc/luci/add_turboacc.sh -o /tmp/add_turboacc.sh
-	bash /tmp/add_turboacc.sh --no-sfe
-fi
-ls package/turboacc
+# 7. turboacc：第 7 版拿掉（会改内核/防火墙组件，怀疑导致访问不到）
 
 echo
 echo "==== diy-tcboot.sh 完成 ===="

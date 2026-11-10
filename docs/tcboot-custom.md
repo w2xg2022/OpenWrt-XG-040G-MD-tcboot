@@ -12,7 +12,7 @@
 | 默认地址 | LAN `192.168.1.1` | `diy-tcboot.sh` 改 `config_generate` + `99-xg040-defaults` |
 | 主机名 | `XG-040G-MD` | 同上 |
 | 语言 / 主题 | 简体中文 / Bootstrap（去掉 Argon） | `99-xg040-defaults`、`diy-tcboot.sh` 第 6 步 |
-| turboacc | 流量分载 + 全锥形 NAT + BBR（`--no-sfe`，不打 SFE 内核补丁） | `diy-tcboot.sh` 第 7 步 |
+| turboacc | 暂时拿掉（第 7 版，排查访问不到） | — |
 | 定时重启 | `luci-app-autoreboot`（ImmortalWrt 简单版，JS） | `custom/package/luci-app-autoreboot` |
 | USB 存储 | NTFS(ntfs3) / exFAT / FAT / ext4 / HFS+ / Btrfs，插上自动挂载到 `/mnt/` | `.config` + `99-xg040-defaults` |
 | USB 无线 | RTL8822BU、RTL8821CU（rtw88）、MT7612U（mt76x2u）、AIC8800D80（移植） | `.config`、`custom/package/aic8800` |
