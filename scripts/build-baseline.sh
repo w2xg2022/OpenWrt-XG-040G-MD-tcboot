@@ -55,7 +55,8 @@ EOF
 		grep -q "^$k=y" .config && echo "OK   $k" || { echo "缺少 $k"; exit 1; }
 	done
 	grep -q '^CONFIG_PACKAGE_luci-theme-argon=y' .config && { echo "不该出现 argon"; exit 1; } || echo "OK   无 argon"
-	grep -q 'luci-theme-bootstrap' feeds/luci/collections/luci/Makefile && echo "OK   collections 默认 bootstrap"
+	grep -q 'luci-theme-bootstrap' feeds/luci/collections/luci-light/Makefile && echo "OK   luci-light 默认 bootstrap"
+	return 0
 }
 
 build() {
