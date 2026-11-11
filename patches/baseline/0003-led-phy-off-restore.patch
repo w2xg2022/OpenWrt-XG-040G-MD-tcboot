@@ -1,0 +1,88 @@
+--- a/package/base-files/files/etc/init.d/led
++++ b/package/base-files/files/etc/init.d/led
+@@ -176,10 +176,74 @@
+ 	}
+ }
+ 
++# 加法排查：逐颗枚举恢复 —— 收集 UCI 里配置过的 LED（以 UCI 为准）
++collect_uci_led() {
++	local sysfs
++	config_get sysfs "$1" sysfs
++	[ -n "$sysfs" ] && UCI_LEDS="$UCI_LEDS $sysfs"
++}
++
++# 加法排查：逐颗枚举恢复 —— 把 DTS gpio-leds 里没被 UCI 配置的灯，
++# 恢复成 DTS 的 linux,default-trigger / default-state
++restore_dts_leds() {
++	local only="$1" node label trig state
++	[ -d /proc/device-tree/leds ] || return 0
++	for node in /proc/device-tree/leds/*/; do
++		[ -f "${node}label" ] || continue
++		label="$(tr -d '\000' < "${node}label")"
++		[ -n "$only" ] && [ "$only" != "$label" ] && continue
++		[ -e "/sys/class/leds/$label/trigger" ] || continue
++		case " $UCI_LEDS " in *" $label "*) continue;; esac
++		trig=""; state=""
++		[ -f "${node}linux,default-trigger" ] && trig="$(tr -d '\000' < "${node}linux,default-trigger")"
++		[ -f "${node}default-state" ] && state="$(tr -d '\000' < "${node}default-state")"
++		[ -z "$trig" ] && [ "$state" != on ] && continue
++		echo "restoring led ${label} (trigger=${trig:-none} state=${state:-off})"
++		[ -n "$trig" ] && echo "$trig" > "/sys/class/leds/$label/trigger" 2>/dev/null
++		[ "$state" = on ] && cat "/sys/class/leds/$label/max_brightness" > "/sys/class/leds/$label/brightness" 2>/dev/null
++	done
++}
++
++# 加法排查：网口 PHY 灯（mt7530-*:*:lan）由 PHY 芯片硬件按连线状态驱动，
++# 写 brightness=0 关不掉。实测：切到 netdev 触发器并把 link/tx/rx 等事件全清 0，
++# 连线位元被清掉，灯才会灭；恢复要明确设回 netdev + link/tx/rx（offloaded=1）。
++phy_led_list() {
++	local d
++	for d in /sys/class/leds/*; do
++		[ -e "$d/device" ] || continue
++		case "$(readlink -f "$d/device")" in */mdio_bus/*) ;; *) continue ;; esac
++		grep -q netdev "$d/trigger" 2>/dev/null || continue
++		basename "$d"
++	done
++}
++
++clear_phy_leds() {
++	local led f
++	for led in $(phy_led_list); do
++		echo netdev > "/sys/class/leds/$led/trigger" 2>/dev/null
++		for f in link link_10 link_100 link_1000 link_2500 tx rx full_duplex half_duplex; do
++			[ -e "/sys/class/leds/$led/$f" ] && echo 0 > "/sys/class/leds/$led/$f"
++		done
++	done
++}
++
++restore_phy_leds() {
++	local led
++	for led in $(phy_led_list); do
++		case " $UCI_LEDS " in *" $led "*) continue;; esac
++		echo "restoring phy led ${led}"
++		echo netdev > "/sys/class/leds/$led/trigger" 2>/dev/null
++		echo 1 > "/sys/class/leds/$led/link" 2>/dev/null
++		echo 1 > "/sys/class/leds/$led/tx" 2>/dev/null
++		echo 1 > "/sys/class/leds/$led/rx" 2>/dev/null
++	done
++}
++
+ turnoff() {
+ 	for led in `ls /sys/class/leds/`; do
+ 		echo 0 > /sys/class/leds/$led/brightness
+ 	done
++	clear_phy_leds
+ }
+ 
+ turnon() {
+@@ -225,6 +289,10 @@
+ 		}
+ 
+ 		config_load system
++		UCI_LEDS=""
++		config_foreach collect_uci_led led
+ 		config_foreach load_led led "$1"
++		restore_dts_leds "$1"
++		[ -z "$1" ] && restore_phy_leds
+ 	}
+ }

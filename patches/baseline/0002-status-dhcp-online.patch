@@ -1,0 +1,120 @@
+--- a/feeds/luci/modules/luci-mod-status/htdocs/luci-static/resources/view/status/include/40_dhcp.js
++++ b/feeds/luci/modules/luci-mod-status/htdocs/luci-static/resources/view/status/include/40_dhcp.js
+@@ -4,6 +4,7 @@
+ 'require uci';
+ 'require network';
+ 'require validation';
++'require fs';
+ 
+ const callLuciDHCPLeases = rpc.declare({
+ 	object: 'luci-rpc',
+@@ -28,13 +29,54 @@
+ 			callLuciDHCPLeases(),
+ 			network.getHostHints(),
+ 			L.hasSystemFeature('ufpd') ? callUfpList() : null,
+-			L.resolveDefault(uci.load('dhcp'))
++			L.resolveDefault(uci.load('dhcp')),
++			/* 加法排查：在线状态，用 ip neigh 的 ARP/NDP 表判断 */
++			L.resolveDefault(fs.exec('/sbin/ip', [ '-4', '-j', 'neigh', 'show' ]), {}),
++			L.resolveDefault(fs.exec('/sbin/ip', [ '-6', '-j', 'neigh', 'show' ]), {})
+ 		]);
+ 	},
+ 
+-	render([dhcp_leases, host_hints, ufp_list]) {
+-		if (L.hasSystemFeature('dnsmasq') || L.hasSystemFeature('odhcpd'))
+-			return this.renderLeases(dhcp_leases, host_hints, ufp_list);
++	/* 加法排查：在线状态，解析 ip neigh 的 JSON 输出，按 MAC 汇总 ARP/NDP 状态 */
++	buildOnlineMap(neigh4, neigh6) {
++		const onlineStates = [ 'REACHABLE', 'STALE', 'DELAY', 'PROBE', 'PERMANENT', 'NOARP' ];
++		const map = {};
++
++		const parse = (res) => {
++			if (!res || res.code !== 0 || !res.stdout)
++				return;
++
++			let entries;
++			try { entries = JSON.parse(res.stdout); } catch (e) { return; }
++
++			if (!Array.isArray(entries))
++				return;
++
++			for (const e of entries) {
++				if (!e.lladdr)
++					continue;
++
++				const mac = e.lladdr.toLowerCase();
++				const states = L.toArray(e.state);
++				const isOnline = states.some((st) => onlineStates.indexOf(st) !== -1);
++
++				if (isOnline || !map.hasOwnProperty(mac))
++					map[mac] = isOnline;
++			}
++		};
++
++		parse(neigh4);
++		parse(neigh6);
++
++		return map;
++	},
++
++	render(data) {
++		const [ dhcp_leases, host_hints, ufp_list ] = data;
++
++		if (L.hasSystemFeature('dnsmasq') || L.hasSystemFeature('odhcpd')) {
++			const onlineMap = this.buildOnlineMap(data[4], data[5]);
++			return this.renderLeases(dhcp_leases, host_hints, ufp_list, onlineMap);
++		}
+ 
+ 		return null;
+ 	},
+@@ -81,7 +123,7 @@
+ 			.then(L.bind(L.ui.changes.displayChanges, L.ui.changes));
+ 	},
+ 
+-	renderLeases(dhcp_leases, host_hints, macaddr) {
++	renderLeases(dhcp_leases, host_hints, macaddr, onlineMap) {
+ 		const leases = Array.isArray(dhcp_leases.dhcp_leases) ? dhcp_leases.dhcp_leases : [];
+ 		const leases6 = Array.isArray(dhcp_leases.dhcp6_leases) ? dhcp_leases.dhcp6_leases : [];
+ 		if (leases.length == 0 && leases6.length == 0)
+@@ -107,6 +149,7 @@
+ 		const table = E('table', { 'id': 'status_leases', 'class': 'table leases' }, [
+ 			E('tr', { 'class': 'tr table-titles' }, [
+ 				L.hasSystemFeature('odhcpd', 'dhcpv4') ? E('th', { 'class': 'th' }, _('Interface')) : E([]),
++				E('th', { 'class': 'th' }, _('Online')),
+ 				E('th', { 'class': 'th' }, _('Hostname')),
+ 				E('th', { 'class': 'th' }, _('IPv4 address')),
+ 				E('th', { 'class': 'th' }, _('MAC address')),
+@@ -151,6 +194,12 @@
+ 			if (L.hasSystemFeature('odhcpd', 'dhcpv4'))
+ 				columns.unshift(lease.interface || '-');
+ 
++			const isOnline4 = lease.macaddr ? onlineMap[lease.macaddr.toLowerCase()] : null;
++			columns.unshift(E('span', {
++				'style': 'display:inline-block;width:.6em;height:.6em;border-radius:50%;background:' + (isOnline4 ? '#5cb85c' : (isOnline4 === false ? '#ccc' : '#ddd')),
++				'title': isOnline4 ? _('Online') : (isOnline4 === false ? _('Offline') : _('Unknown'))
++			}));
++
+ 			if (!isReadonlyView && lease.macaddr != null) {
+ 				columns.push(E('button', {
+ 					'class': 'cbi-button cbi-button-apply',
+@@ -166,6 +215,7 @@
+ 		const table6 = E('table', { 'id': 'status_leases6', 'class': 'table leases6' }, [
+ 			E('tr', { 'class': 'tr table-titles' }, [
+ 				L.hasSystemFeature('odhcpd', 'dhcpv6') ? E('th', { 'class': 'th' }, _('Interface')) : E([]),
++				E('th', { 'class': 'th' }, _('Online')),
+ 				E('th', { 'class': 'th' }, _('Hostname')),
+ 				E('th', { 'class': 'th' }, _('IPv6 addresses')),
+ 				E('th', { 'class': 'th' }, _('DUID')),
+@@ -218,6 +268,12 @@
+ 			if (L.hasSystemFeature('odhcpd', 'dhcpv6'))
+ 				columns.unshift(lease.interface || '-');
+ 
++			const isOnline6 = lease.macaddr ? onlineMap[lease.macaddr.toLowerCase()] : null;
++			columns.unshift(E('span', {
++				'style': 'display:inline-block;width:.6em;height:.6em;border-radius:50%;background:' + (isOnline6 ? '#5cb85c' : (isOnline6 === false ? '#ccc' : '#ddd')),
++				'title': isOnline6 ? _('Online') : (isOnline6 === false ? _('Offline') : _('Unknown'))
++			}));
++
+ 			if (!isReadonlyView && lease.duid) {
+ 				columns.push(E('button', {
+ 					'class': 'cbi-button cbi-button-apply',

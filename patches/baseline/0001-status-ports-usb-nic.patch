@@ -1,0 +1,42 @@
+--- a/feeds/luci/modules/luci-mod-status/htdocs/luci-static/resources/view/status/include/29_ports.js
++++ b/feeds/luci/modules/luci-mod-status/htdocs/luci-static/resources/view/status/include/29_ports.js
+@@ -380,7 +380,8 @@
+ 			L.resolveDefault(fs.read('/etc/board.json'), '{}'),
+ 			firewall.getZones(),
+ 			network.getNetworks(),
+-			uci.load('network')
++			uci.load('network'),
++			network.getDevices()
+ 		]).then((data) => {
+ 			/* Get all known port names from builtin ports or board.json */
+ 			const builtinPorts = data[0] || [];
+@@ -430,7 +431,7 @@
+ 
+ 		const board = JSON.parse(data[1]),
+ 		      port_map = buildInterfaceMapping(data[2], data[3]),
+-		      pseMap = data[5] || {};
++		      pseMap = data[6] || {};
+ 		let known_ports = [];
+ 
+ 		if (Array.isArray(data[0]) && data[0].length > 0) {
+@@ -466,6 +467,20 @@
+ 			return L.naturalCompare(a.device, b.device);
+ 		});
+ 
++		/* 加法排查：硬编码检测 USB 网卡 eth2，固定放最右边（不处理 USB Hub 多网卡情况） */
++		const extraPortNames = [ 'eth2' ];
++		const allDevices = data[5] || [];
++
++		for (let name of extraPortNames) {
++			if (known_ports.some((p) => p.device === name))
++				continue;
++
++			const dev = allDevices.find((d) => d.getName() === name);
++
++			if (dev)
++				known_ports.push({ role: 'usb', device: name, netdev: dev });
++		}
++
+ 		return E('div', { 'style': 'display:grid;grid-template-columns:repeat(auto-fit, minmax(70px, 1fr));margin-bottom:1em' }, known_ports.map(function(port) {
+ 			const speed = port.netdev.getSpeed();
+ 			const duplex = port.netdev.getDuplex();

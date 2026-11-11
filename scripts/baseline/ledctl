@@ -1,0 +1,44 @@
+#!/bin/sh
+# ledctl — 一键关闭 / 恢复所有 LED
+#
+#   ledctl off       关闭所有灯（含网口灯），重启后仍然保持关闭
+#   ledctl on        恢复正常灯号（逐颗枚举恢复），重启后恢复正常
+#   ledctl status    显示当前是关还是开，以及每颗灯的状态
+#
+# 做法：写 system.@system[0].leds_off，再重启 /etc/init.d/led。
+# 具体怎么关、怎么恢复，由 /etc/init.d/led 里的补丁负责：
+#   - turnoff：所有灯 brightness=0；网口 PHY 灯另外切 netdev 并清掉全部事件
+#   - start  ：UCI 配置的灯 + DTS 预设的灯 + 网口 PHY 灯（netdev + link/tx/rx）逐颗恢复
+
+usage() {
+	echo "用法: ledctl off | on | status" >&2
+	exit 1
+}
+
+set_leds_off() {
+	uci set system.@system[0].leds_off="$1"
+	uci commit system
+	/etc/init.d/led restart
+}
+
+show_status() {
+	local d n b t
+	if [ "$(uci -q get system.@system[0].leds_off)" = "1" ]; then
+		echo "状态: 已关闭 (leds_off=1)"
+	else
+		echo "状态: 正常"
+	fi
+	for d in /sys/class/leds/*; do
+		n=$(basename "$d")
+		b=$(cat "$d/brightness" 2>/dev/null)
+		t=$(sed -n 's/.*\[\(.*\)\].*/\1/p' "$d/trigger" 2>/dev/null)
+		printf '  %-28s brightness=%s trigger=%s\n' "$n" "$b" "$t"
+	done
+}
+
+case "$1" in
+	off) set_leds_off 1; echo "已关闭所有 LED" ;;
+	on) set_leds_off 0; echo "已恢复正常灯号" ;;
+	status) show_status ;;
+	*) usage ;;
+esac
