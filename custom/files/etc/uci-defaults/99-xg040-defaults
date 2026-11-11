@@ -1,0 +1,36 @@
+#!/bin/sh
+# XG-040G-MD 自定义默认设置（仅首次开机 / 恢复出厂后执行一次）
+
+# 主机名 + 时区
+uci -q batch <<-EOF
+	set system.@system[0].hostname='XG-040G-MD'
+	set system.@system[0].zonename='Asia/Shanghai'
+	set system.@system[0].timezone='CST-8'
+	commit system
+EOF
+
+# LAN 默认地址 192.168.1.1（与上游相同，避开家里常见的 192.168.8.x）
+uci -q get network.lan >/dev/null && {
+	uci -q set network.lan.ipaddr='192.168.1.1'
+	uci -q commit network
+}
+
+# LuCI：简体中文 + Bootstrap 主题
+uci -q batch <<-EOF
+	set luci.main.lang='zh_cn'
+	set luci.main.mediaurlbase='/luci-static/bootstrap'
+	commit luci
+EOF
+
+# USB 硬盘 / U 盘插上自动挂载（挂到 /mnt/<设备名>）
+[ -f /etc/config/fstab ] || touch /etc/config/fstab
+uci -q get fstab.@global[0] >/dev/null || uci -q add fstab global >/dev/null
+uci -q batch <<-EOF
+	set fstab.@global[0].anon_mount='1'
+	set fstab.@global[0].auto_mount='1'
+	set fstab.@global[0].anon_swap='0'
+	set fstab.@global[0].check_fs='0'
+	commit fstab
+EOF
+
+exit 0

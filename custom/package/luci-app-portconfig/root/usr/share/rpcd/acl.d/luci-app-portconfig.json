@@ -1,0 +1,14 @@
+{
+	"luci-app-portconfig": {
+		"description": "Grant UCI access for luci-app-portconfig",
+		"read": {
+			"ubus": {
+				"network.device": [ "status" ]
+			},
+			"uci": [ "portconfig", "network" ]
+		},
+		"write": {
+			"uci": [ "portconfig" ]
+		}
+	}
+}

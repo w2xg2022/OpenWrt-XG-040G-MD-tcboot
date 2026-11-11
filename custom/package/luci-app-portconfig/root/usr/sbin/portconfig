@@ -1,0 +1,159 @@
+#!/bin/sh
+# XG-040G-MD 网口 LAN/WAN 分配工具
+#
+# 用法：
+#   portconfig show                 显示当前分配
+#   portconfig wan <端口...>        把指定端口设为 WAN，其余设为 LAN，并立即生效
+#                                   例：portconfig wan lan4   /  portconfig wan eth1
+#   portconfig apply [--reload]     按 /etc/config/portconfig 重写 network 配置
+#
+# 端口名：eth1=网口1(2.5G)  lan2=网口2  lan3=网口3  lan4=网口4
+
+. /lib/functions.sh
+. /lib/functions/system.sh
+
+PORTS="eth1 lan2 lan3 lan4"
+TAG="portconfig"
+
+log() { logger -t "$TAG" "$*"; echo "$*"; }
+
+port_label() {
+	case "$1" in
+	eth1) echo "网口1 (2.5G)" ;;
+	lan2) echo "网口2" ;;
+	lan3) echo "网口3" ;;
+	lan4) echo "网口4" ;;
+	*) echo "$1" ;;
+	esac
+}
+
+find_device_section() {
+	# $1 = 设备名，输出对应 network.device 段名
+	local want="$1" found=""
+	_cb() {
+		local n
+		config_get n "$1" name
+		[ "$n" = "$want" ] && [ -z "$found" ] && found="$1"
+	}
+	config_load network
+	config_foreach _cb device
+	echo "$found"
+}
+
+do_show() {
+	local p r
+	for p in $PORTS; do
+		r="$(uci -q get portconfig.main.$p)"
+		[ "$r" = "wan" ] || r="lan"
+		printf '%-6s %-14s %s\n' "$p" "$(port_label $p)" "$(echo $r | tr a-z A-Z)"
+	done
+}
+
+do_apply() {
+	local p r lan_ports="" wan_ports="" nwan=0 wandev="" brsec
+
+	for p in $PORTS; do
+		r="$(uci -q get portconfig.main.$p)"
+		if [ "$r" = "wan" ]; then
+			wan_ports="$wan_ports $p"; nwan=$((nwan + 1))
+		else
+			lan_ports="$lan_ports $p"
+		fi
+	done
+
+	if [ -z "$lan_ports" ]; then
+		log "拒绝执行：至少要保留一个 LAN 口，否则无法再进入管理页面"
+		return 1
+	fi
+
+	brsec="$(find_device_section br-lan)"
+	if [ -z "$brsec" ]; then
+		log "找不到 br-lan 设备，放弃"
+		return 1
+	fi
+
+	# LAN 网桥成员
+	uci -q delete network.$brsec.ports
+	for p in $lan_ports; do
+		uci add_list network.$brsec.ports="$p"
+	done
+
+	# 清掉本工具之前建立的段（WAN 的固定 MAC 由 board.d/02_network 设在 wan 接口上，随接口走，这里不用管）
+	uci -q delete network.portconfig_wanbr
+
+	if [ "$nwan" -eq 0 ]; then
+		wandev=""
+	elif [ "$nwan" -eq 1 ]; then
+		wandev="$(echo $wan_ports)"
+	else
+		wandev="br-wan"
+		uci set network.portconfig_wanbr=device
+		uci set network.portconfig_wanbr.type='bridge'
+		uci set network.portconfig_wanbr.name='br-wan'
+		for p in $wan_ports; do
+			uci add_list network.portconfig_wanbr.ports="$p"
+		done
+	fi
+
+	for p in wan wan6; do
+		uci -q get network.$p >/dev/null || continue
+		if [ -n "$wandev" ]; then
+			uci set network.$p.device="$wandev"
+			uci -q delete network.$p.disabled
+		else
+			uci set network.$p.disabled='1'
+		fi
+	done
+
+	uci commit network
+
+	# WAN 绿灯跟着新的 WAN 设备走（led_wan 由 board.d/01_leds 生成）
+	if [ "$(uci -q get system.led_wan.trigger)" = "netdev" ]; then
+		if [ -n "$wandev" ]; then
+			uci set system.led_wan.dev="$wandev"
+		else
+			uci set system.led_wan.dev='none'
+		fi
+		uci commit system
+		LED_CHANGED=1
+	fi
+
+	log "LAN:${lan_ports}  WAN:${wan_ports:- (无)}"
+	return 0
+}
+
+case "$1" in
+show|"")
+	do_show
+	;;
+apply)
+	do_apply || exit 1
+	if [ "$2" = "--reload" ]; then
+		/etc/init.d/network reload
+		[ -n "$LED_CHANGED" ] && /etc/init.d/led restart
+	fi
+	;;
+wan)
+	shift
+	for p in "$@"; do
+		case " $PORTS " in
+		*" $p "*) ;;
+		*) echo "未知端口：$p（可用：$PORTS）"; exit 1 ;;
+		esac
+	done
+	for p in $PORTS; do
+		r=lan
+		for w in "$@"; do [ "$w" = "$p" ] && r=wan; done
+		uci set portconfig.main.$p="$r"
+	done
+	uci commit portconfig
+	do_apply || exit 1
+	/etc/init.d/network reload
+	[ -n "$LED_CHANGED" ] && /etc/init.d/led restart
+	do_show
+	;;
+*)
+	sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+	exit 1
+	;;
+esac

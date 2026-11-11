@@ -1,0 +1,74 @@
+name: Build_XG_040G_MD_ImageBuilder
+
+# 用 imagebuilder Release 里的 ImageBuilder 几分钟出固件（不重新编译）。
+# 只改软件包清单、首次开机默认设置、board.d 网口/LED 时用这个；
+# 改驱动、内核、feeds 或要新增 ImageBuilder 里没有的包，先手动跑 Build_XG_040G_MD_tcboot 完整编译。
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/xg-040g-md-ib.yml"
+      - "config/ib-packages.txt"
+      - "custom/files/**"
+      - "custom/ib-overlay/**"
+      - "scripts/build-ib.sh"
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 安装依赖
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential zstd python3 rsync gawk unzip file wget libncurses-dev
+
+      - name: 下载 ImageBuilder
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download imagebuilder -R "$GITHUB_REPOSITORY" -p 'openwrt-imagebuilder-*.tar.zst' -D ib-dl
+          ls -l ib-dl
+          mkdir -p ib
+          tar -C ib --strip-components=1 -xf ib-dl/openwrt-imagebuilder-*.tar.zst
+
+      - name: 出包
+        run: |
+          bash scripts/build-ib.sh ib out
+          echo "tag=ib-$(date +%Y.%m.%d-%H%M%S)" >> "$GITHUB_ENV"
+
+      - name: 生成 Release 说明
+        run: |
+          cat > release.txt <<EOF
+          XG-040G-MD（Web U-Boot 刷入，bell 机型）定制固件 · ImageBuilder 出包
+          ----------------------
+          构建时间：$(date +"%Y-%m-%d %H:%M")
+          内核：6.12（openwrt-25.12）
+          默认地址：192.168.1.1（root 无密码）
+          网口：网口2~4=LAN，2.5G 口=WAN（与上游相同）
+          刷机：在 Web U-Boot 恢复页面上传 *-bell_xg-040g-md-squashfs-factory.bin
+          已刷本固件后升级：系统 → 备份/升级，用 *-bell_xg-040g-md-squashfs-sysupgrade.bin
+          EOF
+
+      - name: 发布 Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ env.tag }}
+          bodyFile: release.txt
+          artifacts: out/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

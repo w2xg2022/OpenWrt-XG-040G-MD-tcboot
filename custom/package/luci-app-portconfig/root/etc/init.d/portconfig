@@ -1,0 +1,17 @@
+#!/bin/sh /etc/rc.common
+# 在 LuCI 里保存“网口设置”后，由 procd 触发 reload 来重写 network 配置
+
+START=99
+USE_PROCD=1
+
+start_service() {
+	return 0
+}
+
+reload_service() {
+	/usr/sbin/portconfig apply --reload
+}
+
+service_triggers() {
+	procd_add_reload_trigger "portconfig"
+}

@@ -1,0 +1,61 @@
+#
+# Copyright (c) 2015 The Linux Foundation. All rights reserved.
+# Copyright (c) 2011-2015 OpenWrt.org
+#
+
+. /lib/functions.sh
+. /lib/functions/uci-defaults.sh
+. /lib/functions/system.sh
+
+an7581_setup_interfaces()
+{
+	local board="$1"
+
+	case "$board" in
+	airoha,an7581-evb)
+		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4" "eth1"
+		;;
+	bell,xg-040g-md)
+		ucidef_set_interfaces_lan_wan "lan2 lan3 lan4" "eth1"
+		;;
+	*)
+		echo "Unsupported hardware. Network interfaces not initialized"
+		;;
+	esac
+}
+
+an7581_xg040g_ensure_mac()
+{
+	local board="$1"
+	local mac
+	local lan_mac
+	local idx
+
+	[ "$board" = "bell,xg-040g-md" ] || return 0
+
+	# Read the factory MAC straight from the U-Boot "env" partition. We must
+	# not use fw_printenv here: this board.d script runs from config_generate
+	# before the uboot-envtools uci-default creates /etc/fw_env.config, so
+	# fw_printenv/fw_setenv are not usable yet at this point in boot.
+	idx="$(find_mtd_index env)"
+	[ -n "$idx" ] || return 0
+	mac="$(strings "/dev/mtd$idx" | sed -n 's/^ethaddr=//p' | head -n1)"
+	mac="$(macaddr_canonicalize "$mac")"
+	[ -n "$mac" ] || return 0
+
+	lan_mac="$(macaddr_add "$mac" 1)"
+
+	# wan (eth1) is a plain device, so the interface macaddr applies. lan is a
+	# bridge (br-lan); its MAC must be set on the bridge device section,
+	# otherwise the bridge keeps deriving a random MAC from the conduit.
+	ucidef_set_interface_macaddr "wan" "$mac"
+	ucidef_set_network_device_mac "br-lan" "$lan_mac"
+}
+
+board_config_update
+board=$(board_name)
+an7581_setup_interfaces $board
+an7581_xg040g_ensure_mac $board
+board_config_flush
+
+exit 0
