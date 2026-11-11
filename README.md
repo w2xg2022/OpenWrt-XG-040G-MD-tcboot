@@ -8,13 +8,13 @@ NOKIA BELL XG-040G-MD 的 OpenWrt 固件，适用于已刷 **tcboot** 的机器�
 ## 特点
 
 - 默认地址 `192.168.1.1`，账号 `root`，默认密码 `anytoolab.com`，主机名 `XG-040G-MD`，时区 Asia/Shanghai，简体中文，Bootstrap 主题
-- 网口4（千兆，`lan4`）= WAN，网口1（2.5G，`eth1`）/2/3 = LAN（上游原本是 2.5G 当 WAN）；USB 2.5G 网卡（`eth2`）插上自动加入 LAN
+- 网口4（千兆，`lan4`）= WAN，网口1（2.5G，`eth1`）/2/3 = LAN（上游原本是 2.5G 当 WAN）；USB 2.5G 网卡（`eth2`）插上后首页「端口状态」自动出现网口图标，要当 LAN 用需在网桥设置里勾选（见下方截图）
 - 加速与网络：Turbo ACC（Flow Offloading / FullCone NAT / BBR）、SQM 队列管理、定时重启
 - 工具：网页终端（ttyd）、curl（含 https 根证书）、磁盘管理（diskman）
 - 首页：「端口状态」显示 USB 网卡，「DHCP 租约」显示设备在线 / 离线
 - LED：WAN 灯跟随连线；命令行 `ledctl off | on | status` 一键关闭 / 恢复所有灯（含网口灯，重启后保持）
 - USB 硬盘 / U 盘：NTFS、exFAT、FAT32、ext4，插上自动挂载
-- USB 无线：RTL8822BU、RTL8821CU、MT7612U、AIC8800D80（出厂假光盘 `1111:1111` 自动切换成无线模式）
+- USB 无线：RTL8822BU、RTL8821CU、MT7612U、AIC8800D80
 - USB 有线：RTL8156B 2.5G
 - 换 USB 无线网卡后自动整理无线配置，「网络 → 无线」菜单随网卡出现（没插无线网卡时不显示，这是 LuCI 原生行为）
 - 不带科学上网插件
@@ -30,7 +30,7 @@ NOKIA BELL XG-040G-MD 的 OpenWrt 固件，适用于已刷 **tcboot** 的机器�
 
 ### USB 2.5G 网卡加入 LAN 网桥
 
-「网络 → 接口 → 设备 → br-lan」的网桥端口里可以直接勾选 USB 网卡 `eth2`，和 `eth1`（2.5G 口）、`lan2`、`lan3` 一起组成 LAN；`lan4` 为 WAN。
+USB 网卡插上后不会自动加入 LAN。需要到「网络 → 接口 → 设备 → br-lan → 配置」的网桥端口里勾选 `eth2`，保存并应用后，就和 `eth1`（2.5G 口）、`lan2`、`lan3` 一起组成 LAN；`lan4` 为 WAN。
 
 ![br-lan 网桥端口包含 USB 网卡 eth2](docs/images/lan-bridge-usb-nic.png)
 
