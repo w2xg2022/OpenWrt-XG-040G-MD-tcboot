@@ -1,0 +1,8 @@
+# D-Link DWA-171 USB 无线网卡，出厂先以“驱动光盘”模式出现（0bda:1a2b，显示为随身碟）
+# 实测发现：这颗芯片切换后的真实 ID 是 0bda:c820（不是 usb_modeswitch 官方库记录的 2001:331d），
+# 对应 rtw8821cu 驱动（驱动源码 USB_DEVICE_AND_INTERFACE_INFO(0x0bda, 0xc820, ...)）。
+# 实测还发现：不加任何规则，这颗卡也会在 50~85 秒后自己切换过去（内建计时器），
+# 这里是想测试加上 usb-modeswitch 规则、并在切换前解绑 usb-storage，能不能加速这个过程。
+TargetVendor=0x0bda
+TargetProduct=0xc820
+StandardEject=1

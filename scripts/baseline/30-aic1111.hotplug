@@ -1,0 +1,27 @@
+#!/bin/sh
+# 加法排查：AIC8800D80 "Pandora" 克隆卡（1111:1111，产品名 88M80）出厂是假光盘，
+# 必须发厂商私有 SCSI 命令（CBW 末字节 F2）才会切成 WiFi 模式（a69c:8d80 -> a69c:8d81）。
+# 标准 usbmode/StandardEject 对它无效，所以这里直接用 aicsend 对 Bulk 端点发 CBW。
+#
+# 实测 hotplug 事件：DEVTYPE=usb_interface，PRODUCT=<厂商>/<产品>/<版本>（十六进制、无前导零），
+# 每个接口各发一次 add。大容量存储接口 INTERFACE=8/6/80 (class/sub/proto)。
+[ "$ACTION" = "add" ] || exit 0
+case "$PRODUCT" in 1111/1111/*) ;; *) exit 0 ;; esac
+case "$INTERFACE" in 8/*) ;; *) exit 0 ;; esac
+[ -x /usr/sbin/aicsend ] || exit 0
+
+(
+	# 同一张卡只切一次：多个事件/重复 add 时用锁挡掉
+	LOCK=/var/run/aic1111.lock
+	[ -e "$LOCK" ] && exit 0
+	: > "$LOCK"
+	# 等 usb-storage 探测完（探测完它会放开接口），再发命令
+	sleep 2
+	logger -t aic1111 "switching 1111:1111 (AIC8800D80 clone) to wifi mode"
+	/usr/sbin/aicsend 1111 1111 555342438765432100000000000010fd0000000000000000000000000000f2
+	# 切换后设备会重新枚举成 a69c:8d80 -> a69c:8d81，之后锁可以放掉，给下一张卡用
+	sleep 10
+	rm -f "$LOCK"
+) >/dev/null 2>&1 &
+
+exit 0

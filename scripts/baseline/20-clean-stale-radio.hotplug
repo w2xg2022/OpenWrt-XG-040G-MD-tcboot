@@ -1,0 +1,69 @@
+#!/bin/sh
+# 加法排查：USB 无线网卡热插拔后的 radio 配置整理。
+#  - remove：清掉配置里已经不存在的 USB radio（连同其下的 SSID）。
+#            wifi config 只增不删，换一张卡就会残留一个 Generic unknown 的旧 radio。
+#  - add   ：等 10-wifi-detect 的 wifi config 建好新 radio 之后，补一次 wifi reload。
+#            原厂只做 ubus call network.wireless retry，对 netifd 还没载入的新 radio 没用，
+#            导致新插的卡一直显示"设备未激活"。
+# 只处理路径在 USB 总线下的 radio（内置/PCIe 的不动）。
+case "$ACTION" in remove|add) ;; *) exit 0 ;; esac
+
+(
+	# 等几秒：卡重新枚举（切换模式、瞬间拔插）时 phy 会马上回来，那种情况不该删；
+	# add 时也要等 10-wifi-detect 先把新 radio 写进配置
+	sleep 5
+
+	# 同时只让一个实例整理，避免多次事件连环 reload
+	LOCK=/var/run/clean-stale-radio.lock
+	[ -e "$LOCK" ] && exit 0
+	: > "$LOCK"
+	trap 'rm -f "$LOCK"' EXIT
+
+	. /lib/functions.sh
+
+	live=""
+	for d in /sys/class/ieee80211/*/device; do
+		[ -e "$d" ] || continue
+		live="$live $(readlink -f "$d" | sed 's#^/sys/devices/##')"
+	done
+
+	stale=""
+	collect_stale() {
+		local sec="$1" path
+		config_get path "$sec" path
+		case "$path" in */usb[0-9]*/*) ;; *) return 0 ;; esac
+		case " $live " in *" $path "*) return 0 ;; esac
+		stale="$stale $sec"
+	}
+	config_load wireless
+	config_foreach collect_stale wifi-device
+
+	changed=0
+	for radio in $stale; do
+		for iface in $(uci -q show wireless | sed -n "s/^wireless\.\([^.]*\)\.device='$radio'\$/\1/p"); do
+			uci -q delete "wireless.$iface"
+		done
+		uci -q delete "wireless.$radio"
+		logger -t clean-stale-radio "removed stale radio $radio"
+		changed=1
+	done
+	[ "$changed" = 1 ] && uci commit wireless
+
+	# 有清理，或新卡插入后 netifd 还没载入对应 radio，就 reload 一次
+	need_reload=$changed
+	if [ "$ACTION" = add ]; then
+		for p in $live; do
+			case "$p" in */usb[0-9]*/*) ;; *) continue ;; esac
+			uci -q show wireless | grep -q "\.path='$p'" || continue
+			ubus call network.wireless status 2>/dev/null | grep -q "\"path\": \"$p\"" || need_reload=1
+		done
+	fi
+	[ "$need_reload" = 1 ] && wifi reload
+
+	# LuCI 的菜单（网络 → 无线）只在开机时算一次并缓存：depends 要求 wireless 里
+	# 有 wifi-device。换卡后 radio 增减，缓存不会自己更新，选单就一直缺或多。
+	# 每次整理完都清掉，下次打开页面时重新生成。
+	rm -f /tmp/luci-indexcache* /tmp/luci-modulecache/* 2>/dev/null
+) >/dev/null 2>&1 &
+
+exit 0
